@@ -1,82 +1,125 @@
-import { GoogleGenAI, Type } from "@google/genai";
+
 import { Shape, Inputs, ValidationResult } from '../types';
 import { SHAPE_CONFIGS } from '../constants';
 
-const API_KEY = process.env.API_KEY;
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set.");
-}
+// Toleransi perbedaan ukuran (misal: koma atau ketidakakuratan pengukuran kecil)
+const TOLERANCE = 0.2;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
-const responseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    isValid: {
-      type: Type.BOOLEAN,
-      description: 'Apakah ukurannya membentuk bangun yang valid.'
-    },
-    explanation: {
-      type: Type.STRING,
-      description: 'Penjelasan singkat tentang hasil validasi dalam Bahasa Indonesia.'
-    },
-    keliling: {
-      type: Type.NUMBER,
-      description: 'Keliling dari bangun ruang tersebut jika ukurannya valid. Jika tidak valid, nilainya harus 0.'
-    }
-  },
-  required: ['isValid', 'explanation', 'keliling']
-};
+const isApproximatelyEqual = (n1: number, n2: number) => Math.abs(n1 - n2) < TOLERANCE;
 
 export const validateShape = async (shape: Shape, inputs: Inputs): Promise<ValidationResult> => {
-  const shapeLabel = SHAPE_CONFIGS[shape].label;
-  const numericInputs = Object.fromEntries(
-    Object.entries(inputs).map(([key, value]) => [key, Number(value)])
-  );
+  // Simulasi delay agar UX terasa seperti sedang "memikirkan/menghitung"
+  await new Promise(resolve => setTimeout(resolve, 800));
 
-  const prompt = `
-Anda adalah seorang ahli geometri. Seorang pengguna telah memberikan ukuran untuk bangun ruang tertentu.
-Tugas Anda adalah memvalidasi apakah ukuran-ukuran ini dapat membentuk bangun ruang yang ditentukan DAN menghitung kelilingnya jika valid.
+  const vals = Object.entries(inputs).reduce((acc, [key, value]) => {
+    acc[key] = parseFloat(value);
+    return acc;
+  }, {} as Record<string, number>);
 
-Bangun Ruang: ${shapeLabel}
-Ukuran: ${JSON.stringify(numericInputs)}
-
-Jawab dalam format JSON sesuai dengan skema yang diberikan.
-- Jika ukurannya valid, 'explanation' HARUS berisi teks "Mantap, Anda dapat proyek!".
-- Jika ukurannya tidak valid, 'explanation' harus berisi penjelasan singkat mengapa ukuran tersebut tidak valid dalam Bahasa Indonesia.
-
-Berikut adalah aturan validasi:
-- Untuk Persegi, verifikasi bahwa semua empat sisi (sisi1, sisi2, sisi3, sisi4) memiliki panjang yang sama dan positif. Jika valid, kelilingnya adalah 4 * sisi1.
-- Untuk Persegi Panjang, verifikasi bahwa sisi yang berhadapan memiliki panjang yang sama (sisi1 sama dengan sisi3, dan sisi2 sama dengan sisi4) dan semua sisi positif. Jika valid, kelilingnya adalah 2 * (sisi1 + sisi2).
-- Untuk Segitiga Siku-Siku, verifikasi teorema Pythagoras (a² + b² = c², dimana c adalah sisi terpanjang/miring). Jika valid, kelilingnya adalah a + b + c.
-- Untuk Trapesium Siku-Siku, verifikasi hubungan pythagoras antara tinggi, selisih sisi sejajar, dan sisi miring (tinggi² + (bawah - atas)² = miring²). Pastikan juga sisi bawah lebih panjang dari sisi atas dan semua ukuran positif. Jika valid, kelilingnya adalah atas + bawah + tinggi + miring.
-Pastikan sisi miring (hypotenuse) selalu sisi terpanjang untuk segitiga siku-siku.
-
-Jika ukurannya TIDAK VALID, nilai 'keliling' harus 0.
-`;
+  let isValid = false;
+  let explanation = '';
+  let keliling = 0;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      },
-    });
+    switch (shape) {
+      case Shape.Square: {
+        const sides = [vals.sisi1, vals.sisi2, vals.sisi3, vals.sisi4];
+        const avg = sides.reduce((a, b) => a + b, 0) / 4;
+        
+        // Cek apakah semua sisi dekat dengan rata-rata (artinya semua sisi sama)
+        isValid = sides.every(s => isApproximatelyEqual(s, avg));
+        
+        if (isValid) {
+          keliling = sides.reduce((a, b) => a + b, 0);
+          explanation = "Mantap, Anda dapat proyek! Keempat sisi persegi memiliki panjang yang sama.";
+        } else {
+          explanation = "Ukuran tidak valid untuk Persegi. Semua sisi harus memiliki panjang yang sama.";
+        }
+        break;
+      }
 
-    const text = response.text.trim();
-    if (!text) {
-      throw new Error("API mengembalikan respons kosong.");
+      case Shape.Rectangle: {
+        const sides = [vals.sisi1, vals.sisi2, vals.sisi3, vals.sisi4].sort((a, b) => a - b);
+        // Setelah diurutkan: sides[0] & sides[1] adalah sisi pendek, sides[2] & sides[3] adalah sisi panjang
+        
+        const shortSidesEqual = isApproximatelyEqual(sides[0], sides[1]);
+        const longSidesEqual = isApproximatelyEqual(sides[2], sides[3]);
+        // Pastikan persegi panjang bukan persegi (opsional, tapi secara teknis persegi adalah persegi panjang)
+        // Di sini kita hanya cek pasangannya.
+        
+        isValid = shortSidesEqual && longSidesEqual;
+
+        if (isValid) {
+          keliling = sides.reduce((a, b) => a + b, 0);
+          explanation = "Mantap, Anda dapat proyek! Sisi yang berhadapan memiliki panjang yang sama.";
+        } else {
+          explanation = "Ukuran tidak valid untuk Persegi Panjang. Dua pasang sisi yang berhadapan harus sama panjang.";
+        }
+        break;
+      }
+
+      case Shape.RightTriangle: {
+        const { a, b, c } = vals;
+        // a = alas, b = tinggi, c = miring
+        // Cek Pythagoras: a^2 + b^2 = c^2
+        
+        const pythagoras = (a * a) + (b * b);
+        const hypotenuseSquared = c * c;
+
+        // Toleransi sedikit lebih besar untuk kuadrat
+        isValid = Math.abs(pythagoras - hypotenuseSquared) < (TOLERANCE * 5); 
+
+        if (isValid) {
+          keliling = a + b + c;
+          explanation = "Mantap, Anda dapat proyek! Ukuran memenuhi teorema Pythagoras untuk segitiga siku-siku.";
+        } else {
+          explanation = `Ukuran tidak valid. ${a}² + ${b}² (${pythagoras.toFixed(2)}) tidak sama dengan ${c}² (${hypotenuseSquared.toFixed(2)}). Pastikan sisi miring sudah benar.`;
+        }
+        break;
+      }
+
+      case Shape.RightTrapezoid: {
+        const { atas, bawah, tinggi, miring } = vals;
+        
+        // Trapesium siku-siku valid jika selisih sisi sejajar (alas segitiga imajiner) 
+        // dan tinggi membentuk pythagoras dengan sisi miring.
+        const alasSegitiga = Math.abs(bawah - atas);
+        const pythagoras = (alasSegitiga * alasSegitiga) + (tinggi * tinggi);
+        const miringSquared = miring * miring;
+
+        isValid = Math.abs(pythagoras - miringSquared) < (TOLERANCE * 5);
+
+        if (isValid) {
+          keliling = atas + bawah + tinggi + miring;
+          explanation = "Mantap, Anda dapat proyek! Hubungan antara tinggi, selisih sisi sejajar, dan sisi miring sudah tepat.";
+        } else {
+          explanation = "Ukuran tidak valid. Sisi miring tidak sesuai dengan perhitungan Pythagoras berdasarkan tinggi dan selisih sisi sejajar.";
+        }
+        break;
+      }
+      
+      default:
+        explanation = "Bangun ruang tidak dikenal.";
     }
-    
-    // Sometimes the API might wrap the JSON in markdown backticks
-    const cleanedText = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-
-    const parsedResult = JSON.parse(cleanedText) as ValidationResult;
-    return parsedResult;
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    throw new Error("Gagal berkomunikasi dengan layanan AI. Silakan coba lagi.");
+    console.error(error);
+    throw new Error("Terjadi kesalahan saat menghitung validasi.");
   }
+
+  // Jika valid tetapi keliling 0 atau negatif (tidak mungkin karena input min 0.01), set invalid
+  if (isValid && keliling <= 0) {
+      isValid = false;
+      explanation = "Terjadi kesalahan perhitungan, keliling tidak valid.";
+  }
+
+  // Jika tidak valid, pastikan keliling 0 sesuai spec lama
+  if (!isValid) {
+    keliling = 0;
+  }
+
+  return {
+    isValid,
+    explanation,
+    keliling
+  };
 };
