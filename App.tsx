@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Shape, Inputs, ValidationResult } from './types';
 import { SHAPE_CONFIGS } from './constants';
@@ -58,10 +57,10 @@ const App: React.FC = () => {
       <div className="w-full max-w-2xl mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">
-            Validator Geometri
+            Validator Tuqang x AI
           </h1>
           <p className="text-slate-400 mt-2 text-lg">
-            Validasi ukuran bangun ruang Anda dengan kekuatan AI.
+            Validasi ukuran proyek Anda dengan kekuatan AI
           </p>
         </header>
 

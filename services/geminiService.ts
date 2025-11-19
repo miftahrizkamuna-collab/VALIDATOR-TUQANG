@@ -41,7 +41,11 @@ Tugas Anda adalah memvalidasi apakah ukuran-ukuran ini dapat membentuk bangun ru
 Bangun Ruang: ${shapeLabel}
 Ukuran: ${JSON.stringify(numericInputs)}
 
-Jawab dalam format JSON sesuai dengan skema yang diberikan. Penjelasannya harus ringkas dan menjelaskan mengapa ukurannya valid atau tidak valid, dalam Bahasa Indonesia.
+Jawab dalam format JSON sesuai dengan skema yang diberikan.
+- Jika ukurannya valid, 'explanation' HARUS berisi teks "Mantap, Anda dapat proyek!".
+- Jika ukurannya tidak valid, 'explanation' harus berisi penjelasan singkat mengapa ukuran tersebut tidak valid dalam Bahasa Indonesia.
+
+Berikut adalah aturan validasi:
 - Untuk Persegi, verifikasi bahwa semua empat sisi (sisi1, sisi2, sisi3, sisi4) memiliki panjang yang sama dan positif. Jika valid, kelilingnya adalah 4 * sisi1.
 - Untuk Persegi Panjang, verifikasi bahwa sisi yang berhadapan memiliki panjang yang sama (sisi1 sama dengan sisi3, dan sisi2 sama dengan sisi4) dan semua sisi positif. Jika valid, kelilingnya adalah 2 * (sisi1 + sisi2).
 - Untuk Segitiga Siku-Siku, verifikasi teorema Pythagoras (a² + b² = c², dimana c adalah sisi terpanjang/miring). Jika valid, kelilingnya adalah a + b + c.
