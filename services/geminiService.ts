@@ -1,6 +1,4 @@
-
 import { Shape, Inputs, ValidationResult } from '../types';
-import { SHAPE_CONFIGS } from '../constants';
 
 // Toleransi perbedaan ukuran (misal: koma atau ketidakakuratan pengukuran kecil)
 const TOLERANCE = 0.2;
@@ -44,8 +42,6 @@ export const validateShape = async (shape: Shape, inputs: Inputs): Promise<Valid
         
         const shortSidesEqual = isApproximatelyEqual(sides[0], sides[1]);
         const longSidesEqual = isApproximatelyEqual(sides[2], sides[3]);
-        // Pastikan persegi panjang bukan persegi (opsional, tapi secara teknis persegi adalah persegi panjang)
-        // Di sini kita hanya cek pasangannya.
         
         isValid = shortSidesEqual && longSidesEqual;
 
@@ -81,6 +77,13 @@ export const validateShape = async (shape: Shape, inputs: Inputs): Promise<Valid
       case Shape.RightTrapezoid: {
         const { atas, bawah, tinggi, miring } = vals;
         
+        // Jika atas == bawah, itu persegi panjang, bukan trapesium siku-siku standar
+        if (isApproximatelyEqual(atas, bawah)) {
+            isValid = false;
+            explanation = "Ukuran tidak valid untuk Trapesium Siku-Siku. Sisi atas dan bawah tidak boleh sama panjang (itu adalah Persegi Panjang).";
+            break;
+        }
+
         // Trapesium siku-siku valid jika selisih sisi sejajar (alas segitiga imajiner) 
         // dan tinggi membentuk pythagoras dengan sisi miring.
         const alasSegitiga = Math.abs(bawah - atas);
@@ -93,7 +96,7 @@ export const validateShape = async (shape: Shape, inputs: Inputs): Promise<Valid
           keliling = atas + bawah + tinggi + miring;
           explanation = "Mantap, Anda dapat proyek! Hubungan antara tinggi, selisih sisi sejajar, dan sisi miring sudah tepat.";
         } else {
-          explanation = "Ukuran tidak valid. Sisi miring tidak sesuai dengan perhitungan Pythagoras berdasarkan tinggi dan selisih sisi sejajar.";
+          explanation = `Ukuran tidak valid. Sisi miring (${miring}) tidak sesuai dengan perhitungan Pythagoras. Seharusnya mendekati ${Math.sqrt(pythagoras).toFixed(2)}.`;
         }
         break;
       }
@@ -106,13 +109,13 @@ export const validateShape = async (shape: Shape, inputs: Inputs): Promise<Valid
     throw new Error("Terjadi kesalahan saat menghitung validasi.");
   }
 
-  // Jika valid tetapi keliling 0 atau negatif (tidak mungkin karena input min 0.01), set invalid
+  // Jika valid tetapi keliling 0 atau negatif, set invalid
   if (isValid && keliling <= 0) {
       isValid = false;
       explanation = "Terjadi kesalahan perhitungan, keliling tidak valid.";
   }
 
-  // Jika tidak valid, pastikan keliling 0 sesuai spec lama
+  // Jika tidak valid, pastikan keliling 0
   if (!isValid) {
     keliling = 0;
   }

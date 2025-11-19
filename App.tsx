@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Shape, Inputs, ValidationResult } from './types';
 import { SHAPE_CONFIGS } from './constants';
@@ -88,7 +87,7 @@ const App: React.FC = () => {
         </main>
         
         <footer className="text-center mt-8 text-slate-500 text-sm">
-          <p>Kalkulasi Lokal - Tanpa Internet</p>
+          <p>Validasi menggunakan Algoritma Matematika Lokal</p>
         </footer>
       </div>
     </div>

@@ -12,7 +12,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ isLoading, result, error 
     return (
       <div className="mt-8 flex flex-col items-center justify-center p-6 border-t border-slate-700">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
-        <p className="mt-4 text-slate-400">AI sedang berpikir...</p>
+        <p className="mt-4 text-slate-400">Sedang menghitung validasi...</p>
       </div>
     );
   }
